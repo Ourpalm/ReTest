@@ -10,3 +10,4 @@ dist
 source_images
 match_regn.png
 match_full.png
+*.png
