@@ -3,9 +3,13 @@ def check_color(full_img, regn_img):
     DIFF = 20
     regn_data = cv2.cvtColor(regn_img, cv2.COLOR_BGR2RGB)
     full_data = cv2.cvtColor(full_img, cv2.COLOR_BGR2RGB)
+    CX = regn_data.shape[0]
+    CY = regn_data.shape[1]
+    if CX != full_data.shape[0] or CY != full_data.shape[1]:
+        return False
     diff_num = 0
-    for x in range(0, 64):
-        for y in range(0, 64):
+    for x in range(0, CX):
+        for y in range(0, CY):
             regn_pixel = regn_data[y, x]
             full_pixel = full_data[y, x]
             diff_r = int(full_pixel[0]) - int(regn_pixel[0])
@@ -14,7 +18,7 @@ def check_color(full_img, regn_img):
             if abs(diff_r) > DIFF or abs(diff_g) > DIFF or abs(diff_b) > DIFF:
                 diff_num=diff_num+1
     print(diff_num)            
-    return diff_num < (64 * 64) * 0.1
+    return diff_num < (CX * CY) * 0.1
 
 def test_match(file1,file2):
     import cv2

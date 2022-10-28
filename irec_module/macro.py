@@ -27,6 +27,8 @@ import pyautogui
 import numpy as np
 from PIL import Image
 
+from irec_module.util import is_similar_image
+
 GLOBAL_W = 64
 GLOBAL_H = 64
 GLOBAL_HALF_W = int(GLOBAL_W/2)
@@ -321,60 +323,6 @@ class MouseButtonPressEvent(MouseButtonEvent):
         return np.array_equal(rd, fd[sy:sy+h, sx:sx+w])
 
 
-    @staticmethod
-    def check_color(full_img, regn_img):
-        import cv2
-        regn_data = cv2.cvtColor(regn_img, cv2.COLOR_BGR2RGB)
-        full_data = cv2.cvtColor(full_img, cv2.COLOR_BGR2RGB)
-        diff_num = 0;
-        for x in range(0, GLOBAL_W):
-            for y in range(0, GLOBAL_H):
-                regn_pixel = regn_data[y, x]
-                full_pixel = full_data[y, x]
-                diff_r = int(full_pixel[0]) - int(regn_pixel[0])
-                diff_g = int(full_pixel[1]) - int(regn_pixel[1])
-                diff_b = int(full_pixel[2]) - int(regn_pixel[2])
-                DIFF = 20
-                if abs(diff_r) > DIFF or abs(diff_g) > DIFF or abs(diff_b) > DIFF:
-                    diff_num = diff_num+1
-        return diff_num < (GLOBAL_W * GLOBAL_H) * 0.1
-
-    @staticmethod
-    def get_mouse_position(mouse_x0, mouse_y0):
-        import cv2
-
-        sift = cv2.xfeatures2d.SIFT_create()
-        full_img = cv2.imread('match_full.png', 0)
-        regn_img = cv2.imread('match_regn.png', 0)
-
-        kp_full, desc_full = sift.detectAndCompute(full_img, None)
-        kp_regn, desc_regn = sift.detectAndCompute(regn_img, None)
-
-        if len(kp_full) == 0 or len(kp_regn) == 0:
-            if MouseButtonPressEvent.check_color(full_img, regn_img):
-                return (mouse_x0, mouse_y0)
-            return None
-
-        bf = cv2.BFMatcher(crossCheck=True)
-        matches = bf.match(desc_full, desc_regn)
-        matches = sorted(matches, key=lambda x: x.distance)
-        match_position = kp_full[matches[0].queryIdx].pt if len(matches) > 0 else (-1,-1)
-        # match_distance = matches[0].distance
-        # match_dist2 = pow(match_position[0] - mouse_x0,2) + pow(match_position[1] - mouse_y0,2)
-        # for mm in matches:
-        #     if abs(mm.distance - match_distance) > 3:
-        #         continue
-        #     pt = kp_full[mm.queryIdx].pt
-        #     dist2 = pow(pt[0] - mouse_x0,2) + pow(pt[1] - mouse_y0,2)
-        #     if dist2 < match_dist2:
-        #         match_dist2 = dist2
-        #         match_position = pt
-
-        print("match distance=", matches[0].distance, "pt=", match_position, "mouse_t=", (mouse_x0, mouse_y0))
-
-        if matches[0].distance < 150:
-            return (mouse_x0, mouse_y0)
-        return None
 
     def execute(self):
         import keyboard
@@ -400,8 +348,7 @@ class MouseButtonPressEvent(MouseButtonEvent):
                 break
             full_img = pyautogui.screenshot(region=[mouse_x0 - GLOBAL_HALF_W, mouse_y0 - GLOBAL_HALF_H, GLOBAL_W, GLOBAL_H]) # x,y,w,h
             full_img.save("match_full.png")
-            mouse_should_pos = MouseButtonPressEvent.get_mouse_position(mouse_x0, mouse_y0)
-            if mouse_should_pos == None:
+            if not is_similar_image("match_full.png","match_regn.png"):
                 # regn_img2 = Image.fromarray(np.uint8(self.region_data))
                 # regn_img2.save('test_match/screenshot_regn.png')
                 # full_img.save('test_match/screenshot_full.png')
