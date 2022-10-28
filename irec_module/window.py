@@ -1681,7 +1681,7 @@ def create_window():
 
     stop_playback_enabled_var.trace("w", toggle_stop_playback_enabled)
     
-    stop_playback_enabled_var.set(int(config.get("enable_stop_playback_key", False)))
+    stop_playback_enabled_var.set(int(config.get("enable_stop_playback_key", True)))
 
     def get_new_stop_playback_key():
         stop_playback_key.config(text="Press a Key...")

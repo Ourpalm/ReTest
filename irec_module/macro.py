@@ -336,7 +336,7 @@ class MouseButtonPressEvent(MouseButtonEvent):
                 diff_b = int(full_pixel[2]) - int(regn_pixel[2])
                 DIFF = 20
                 if abs(diff_r) > DIFF or abs(diff_g) > DIFF or abs(diff_b) > DIFF:
-                    ++diff_num
+                    diff_num = diff_num+1
         return diff_num < (GLOBAL_W * GLOBAL_H) * 0.1
 
     @staticmethod
@@ -391,12 +391,13 @@ class MouseButtonPressEvent(MouseButtonEvent):
         mouse_x0 = self.x
         mouse_y0 = self.y
         for zz in range(0,1000):
-            if keyboard.is_pressed("esc"):
+            if enable_playback_interruption:
+                winput.get_message()
+            if not continue_playback:
                 full_img = pyautogui.screenshot(region=[mouse_x0 - GLOBAL_HALF_W, mouse_y0 - GLOBAL_HALF_H, GLOBAL_W, GLOBAL_H])  # x,y,w,h
                 regn_img.save('match_{}_regn.png'.format(GLOBAL_STEP_ID))
                 full_img.save('match_{}_full.png'.format(GLOBAL_STEP_ID))
-                exit(1)
-                return
+                break
             full_img = pyautogui.screenshot(region=[mouse_x0 - GLOBAL_HALF_W, mouse_y0 - GLOBAL_HALF_H, GLOBAL_W, GLOBAL_H]) # x,y,w,h
             full_img.save("match_full.png")
             mouse_should_pos = MouseButtonPressEvent.get_mouse_position(mouse_x0, mouse_y0)
@@ -406,11 +407,11 @@ class MouseButtonPressEvent(MouseButtonEvent):
                 # full_img.save('test_match/screenshot_full.png')
                 print("mouse position no matched! mouse pos={}".format((mouse_x0, mouse_y0)))
                 time.sleep(0.05)
-                continue
-            winput.set_mouse_pos(self.x, self.y)
-            winput.press_mouse_button(self.mouse_button)
-            found = True
-            break
+            else:    
+                winput.set_mouse_pos(self.x, self.y)
+                winput.press_mouse_button(self.mouse_button)
+                found = True
+                break
         if not found:
             full_img = pyautogui.screenshot(region=[mouse_x0 - GLOBAL_HALF_W, mouse_y0 - GLOBAL_HALF_H, GLOBAL_W, GLOBAL_H])  # x,y,w,h
             regn_img.save('match_{}_regn.png'.format(GLOBAL_STEP_ID))
@@ -617,7 +618,7 @@ class Macro:
 
         continue_playback = True
 
-        enable_playback_interruption = config.get("enable_stop_playback_key", False)
+        enable_playback_interruption = config.get("enable_stop_playback_key", True)
 
         if enable_playback_interruption:
             self.stop_playback_vk_code = config.get("stop_playback_key", winput.VK_ESCAPE)
