@@ -1,61 +1,57 @@
-import pyautogui
-#import cv2 # https://www.lfd.uci.edu/~gohlke/pythonlibs/#opencv
-import numpy as np
-from PIL import Image
+def check_color(full_img, regn_img):
+    import cv2
+    DIFF = 20
+    regn_data = cv2.cvtColor(regn_img, cv2.COLOR_BGR2RGB)
+    full_data = cv2.cvtColor(full_img, cv2.COLOR_BGR2RGB)
+    diff_num = 0
+    for x in range(0, 64):
+        for y in range(0, 64):
+            regn_pixel = regn_data[y, x]
+            full_pixel = full_data[y, x]
+            diff_r = int(full_pixel[0]) - int(regn_pixel[0])
+            diff_g = int(full_pixel[1]) - int(regn_pixel[1])
+            diff_b = int(full_pixel[2]) - int(regn_pixel[2])
+            if abs(diff_r) > DIFF or abs(diff_g) > DIFF or abs(diff_b) > DIFF:
+                diff_num=diff_num+1
+    print(diff_num)            
+    return diff_num < (64 * 64) * 0.1
 
-def is_match(rd, fd, sx, sy, w, h):
-    #print(fd[sx:w,sy:h])
-    return np.array_equal(rd, fd[sy:sy+h, sx:sx+w])
-    # found = True
-    # for x in range(0,w):
-    #     for y in range(0,h):
-    #         regn_pixel = rd[y][x]
-    #         full_pixel = fd[y + sy][x + sx]
-    #         if not np.array_equal(full_pixel, regn_pixel):
-    #             found = False
-    #             #print("full_pixel={} regn_pixel={} x={} y={} sx={} sy={}".format(full_pixel, regn_pixel,x,y,sx,sy))
-    #             break
-    # return found
+def test_match(file1,file2):
+    import cv2
+    sift = cv2.xfeatures2d.SIFT_create()
+    full_img = cv2.imread(file1, 0)
+    regn_img = cv2.imread(file2, 0)
+
+    kp_full, desc_full = sift.detectAndCompute(full_img, None)
+    kp_regn, desc_regn = sift.detectAndCompute(regn_img, None)
+
+    if len(kp_full) == 0 or len(kp_regn) == 0:
+        if check_color(full_img, regn_img):
+            print("1")
+            return True
+        return False
+
+    bf = cv2.BFMatcher(crossCheck=True)
+    matches = bf.match(desc_full, desc_regn)
+    matches = sorted(matches, key=lambda x: x.distance)
+    match_position = kp_full[matches[0].queryIdx].pt if len(matches) > 0 else (-1,-1)
+    # match_distance = matches[0].distance
+    # match_dist2 = pow(match_position[0] - mouse_x0,2) + pow(match_position[1] - mouse_y0,2)
+    # for mm in matches:
+    #     if abs(mm.distance - match_distance) > 3:
+    #         continue
+    #     pt = kp_full[mm.queryIdx].pt
+    #     dist2 = pow(pt[0] - mouse_x0,2) + pow(pt[1] - mouse_y0,2)
+    #     if dist2 < match_dist2:
+    #         match_dist2 = dist2
+    #         match_position = pt
+
+    print("match distance=", matches[0].distance, "pt=", match_position)
+
+    if matches[0].distance < 150:
+        return True
+    return False
 
 
-regn_x = 6
-regn_y = 44
-
-# regn_img = pyautogui.screenshot(region=[regn_x, regn_y, 64, 64]) # x,y,w,h 
-regn_img = Image.open("screenshot_regn.png")
-regn_data = np.asarray(regn_img)
-#regn_img2 = Image.fromarray(np.uint8(regn_img))
-#regn_img2.save('screenshot3.png')
-
-
-# full_img = pyautogui.screenshot(region=[max(0, regn_x - 100), max(0, regn_y - 100), 200, 200]) # x,y,w,h
-full_img = Image.open("screenshot_full.png")
-full_data = np.asarray(full_img)
-#full_img2 = Image.fromarray(np.uint8(full_img))
-#full_img2.save('screenshot_full.png')
-
-#print(regn_data[0][0])
-#print(full_data[44][1])
-
-# check_x = regn_x + 6
-# check_y = regn_y - 10
-check_x = 129
-check_y = 194
-finish = False
-
-for x in range(0, 200):
-    for y in range(0, 200):
-        xdir = 1 if x % 2 == 0 else -1
-        ydir = 1 if y % 2 == 0 else -1
-        sx = max(0, check_x + int((x / 2) * xdir))
-        sy = max(0, check_y + int((y / 2) * ydir))
-        print("check sx={} sy={}".format(sx,sy))
-        if is_match(regn_data, full_data, sx, sy, 64, 64):
-            finish = True
-            print("found sx={} sy={}".format(sx, sy))
-            break
-    if finish:
-        break
-
-if not finish:
-    print("failed!")
+match = test_match('match_full.png','match_regn.png')
+print(match)
