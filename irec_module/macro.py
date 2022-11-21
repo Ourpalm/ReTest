@@ -25,6 +25,7 @@ except ImportError:
 import winput, time, ctypes, zlib, json
 import pyautogui
 import numpy as np
+import base64
 from PIL import Image
 
 from irec_module.util import is_similar_image
@@ -307,6 +308,30 @@ class MouseButtonPressEvent(MouseButtonEvent):
         self.y = y
         # print("__init__={}".format(self.region_data))
 
+    def to_dict(self):
+        return {
+            "type"  : self.__class__.__name__,
+            "mouse_button": self.mouse_button,
+            "x": self.x,
+            "y": self.y,
+            "img": base64.b64encode(self.region_data.tobytes()).decode()
+        }
+
+    @classmethod
+    def from_dict(cls, config, as_dict):
+        assert "type" in as_dict and \
+               "mouse_button" in as_dict and \
+               "img" in as_dict
+
+        assert as_dict["type"] == cls.__name__
+
+        assert type(as_dict["mouse_button"]) == int
+
+        img_decoded = base64.b64decode(as_dict["img"])
+        img_data = np.reshape(np.frombuffer(img_decoded, dtype=np.uint8), newshape=(GLOBAL_W, GLOBAL_H, 3))
+        return cls(as_dict["mouse_button"], img_data, as_dict["x"], as_dict["y"])
+
+
     def to_bytes(self):
         return self.bytecode + self.mouse_button.to_bytes(1, "little") + self.x.to_bytes(2, "little")  + self.y.to_bytes(2, "little") + self.region_data.tobytes()
     
@@ -321,7 +346,6 @@ class MouseButtonPressEvent(MouseButtonEvent):
     @staticmethod
     def is_match(rd, fd, sx, sy, w, h):
         return np.array_equal(rd, fd[sy:sy+h, sx:sx+w])
-
 
 
     def execute(self):
