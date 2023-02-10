@@ -112,3 +112,37 @@ def is_similar_image(file1, file2):
     if matches[0].distance < 150:
         return True
     return False
+
+def is_similar_image2(full_img, regn_img):
+    import cv2
+
+    sift = cv2.xfeatures2d.SIFT_create()
+
+    kp_full, desc_full = sift.detectAndCompute(full_img, None)
+    kp_regn, desc_regn = sift.detectAndCompute(regn_img, None)
+
+    if len(kp_full) == 0 or len(kp_regn) == 0:
+        if _check_color(full_img, regn_img):
+            return True
+        return False
+
+    bf = cv2.BFMatcher(crossCheck=True)
+    matches = bf.match(desc_full, desc_regn)
+    matches = sorted(matches, key=lambda x: x.distance)
+    match_position = kp_full[matches[0].queryIdx].pt if len(matches) > 0 else (-1,-1)
+    # match_distance = matches[0].distance
+    # match_dist2 = pow(match_position[0] - mouse_x0,2) + pow(match_position[1] - mouse_y0,2)
+    # for mm in matches:
+    #     if abs(mm.distance - match_distance) > 3:
+    #         continue
+    #     pt = kp_full[mm.queryIdx].pt
+    #     dist2 = pow(pt[0] - mouse_x0,2) + pow(pt[1] - mouse_y0,2)
+    #     if dist2 < match_dist2:
+    #         match_dist2 = dist2
+    #         match_position = pt
+
+    print("match distance=", matches[0].distance, "pt=", match_position)
+
+    if matches[0].distance < 50:
+        return True
+    return False

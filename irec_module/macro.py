@@ -16,6 +16,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+import threading
 
 try:
     from . import config, util
@@ -29,12 +30,18 @@ import base64
 from PIL import Image
 
 from irec_module.util import is_similar_image
+from irec_module.util import is_similar_image2
 
 GLOBAL_W = 64
 GLOBAL_H = 64
+GLOBAL_SCREEN_W = 1920
+GLOBAL_SCREEN_H = 1080
 GLOBAL_HALF_W = int(GLOBAL_W/2)
 GLOBAL_HALF_H = int(GLOBAL_H/2)
 GLOBAL_STEP_ID = 0
+
+GLOBAL_IMAGE_LIST = list()
+GLOBAL_PROCESSING  = True
 
 float_to_bytes = lambda f: bytes(ctypes.c_float(f))
 bytes_to_float = lambda b: ctypes.cast(b, ctypes.POINTER(ctypes.c_float)).contents.value
@@ -301,9 +308,16 @@ class MouseButtonEvent(MacroEvent):
 class MouseButtonPressEvent(MouseButtonEvent):
     bytecode = b"B"
 
-    def __init__(self, mouse_button, region_data, x, y):
+    def __init__(self, mouse_button, region_datas, x, y):
         super().__init__(mouse_button)
-        self.region_data = region_data
+        if region_datas is None:
+            self.region_data = None
+            self.region_prev_0 = None
+            self.region_prev_1 = None
+        else:
+            self.region_data = region_datas[0]
+            self.region_prev_0 = region_datas[1]
+            self.region_prev_1 = region_datas[2]
         self.x = x
         self.y = y
         # print("__init__={}".format(self.region_data))
@@ -314,7 +328,9 @@ class MouseButtonPressEvent(MouseButtonEvent):
             "mouse_button": self.mouse_button,
             "x": self.x,
             "y": self.y,
-            "img": base64.b64encode(self.region_data.tobytes()).decode()
+            "img": base64.b64encode(self.region_data.tobytes()).decode(),
+            "img_prev_0": base64.b64encode(self.region_prev_0.tobytes()).decode(),
+            "img_prev_1": base64.b64encode(self.region_prev_1.tobytes()).decode(),
         }
 
     @classmethod
@@ -329,7 +345,13 @@ class MouseButtonPressEvent(MouseButtonEvent):
 
         img_decoded = base64.b64decode(as_dict["img"])
         img_data = np.reshape(np.frombuffer(img_decoded, dtype=np.uint8), newshape=(GLOBAL_W, GLOBAL_H, 3))
-        return cls(as_dict["mouse_button"], img_data, as_dict["x"], as_dict["y"])
+
+        img_prev_decode_0 = base64.b64decode(as_dict["img_prev_0"])
+        img_prev_data_0 = np.reshape(np.frombuffer(img_prev_decode_0, dtype=np.uint8), newshape=(GLOBAL_W, GLOBAL_H, 3))
+
+        img_prev_decode_1 = base64.b64decode(as_dict["img_prev_1"])
+        img_prev_data_1 = np.reshape(np.frombuffer(img_prev_decode_1, dtype=np.uint8), newshape=(GLOBAL_W, GLOBAL_H, 3))
+        return cls(as_dict["mouse_button"], [img_data, img_prev_data_0, img_prev_data_1], as_dict["x"], as_dict["y"])
 
 
     def to_bytes(self):
@@ -360,6 +382,16 @@ class MouseButtonPressEvent(MouseButtonEvent):
         regn_img = Image.fromarray(np.uint8(self.region_data))
         regn_img.save('match_regn.png')
 
+        regn_img_prev_0 = Image.fromarray(np.uint8(self.region_prev_0))
+        regn_img_prev_1 = Image.fromarray(np.uint8(self.region_prev_1))
+        regn_img_prev_0.save('regn_img_prev_0.png')
+        regn_img_prev_1.save('regn_img_prev_1.png')
+
+        import cv2
+        regn_img_data = cv2.imread("match_regn.png", 0)
+        regn_img_prev_0_data = cv2.imread("regn_img_prev_0.png", 0)
+        regn_img_prev_1_data = cv2.imread("regn_img_prev_1.png", 0)
+
         mouse_x0 = self.x
         mouse_y0 = self.y
         for zz in range(0,1000):
@@ -372,17 +404,19 @@ class MouseButtonPressEvent(MouseButtonEvent):
                 break
             full_img = pyautogui.screenshot(region=[mouse_x0 - GLOBAL_HALF_W, mouse_y0 - GLOBAL_HALF_H, GLOBAL_W, GLOBAL_H]) # x,y,w,h
             full_img.save("match_full.png")
-            if not is_similar_image("match_full.png","match_regn.png"):
+            full_img_data = cv2.imread("match_full.png", 0)
+
+            if is_similar_image2(full_img_data, regn_img_data) or is_similar_image2(full_img_data, regn_img_prev_0_data) or is_similar_image2(full_img_data, regn_img_prev_0_data):
+                winput.set_mouse_pos(self.x, self.y)
+                winput.press_mouse_button(self.mouse_button)
+                found = True
+                break
+            else:
                 # regn_img2 = Image.fromarray(np.uint8(self.region_data))
                 # regn_img2.save('test_match/screenshot_regn.png')
                 # full_img.save('test_match/screenshot_full.png')
                 print("mouse position no matched! mouse pos={}".format((mouse_x0, mouse_y0)))
                 time.sleep(0.05)
-            else:    
-                winput.set_mouse_pos(self.x, self.y)
-                winput.press_mouse_button(self.mouse_button)
-                found = True
-                break
         if not found:
             full_img = pyautogui.screenshot(region=[mouse_x0 - GLOBAL_HALF_W, mouse_y0 - GLOBAL_HALF_H, GLOBAL_W, GLOBAL_H])  # x,y,w,h
             regn_img.save('match_{}_regn.png'.format(GLOBAL_STEP_ID))
@@ -767,7 +801,10 @@ def callback(event):
             beg_x = max(0,event.position[0] - GLOBAL_HALF_W)
             beg_y = max(0,event.position[1] - GLOBAL_HALF_H)
             img = pyautogui.screenshot(region=[beg_x, beg_y, GLOBAL_W, GLOBAL_H])
-            event.additional_data = np.asarray(img)
+
+            prev_img_0 = GLOBAL_IMAGE_LIST[-1].crop((beg_x, beg_y, beg_x + GLOBAL_W, beg_y + GLOBAL_H))
+            prev_img_1 = GLOBAL_IMAGE_LIST[-2].crop((beg_x, beg_y, beg_x + GLOBAL_W, beg_y + GLOBAL_H))
+            event.additional_data = [np.asarray(img), np.asarray(prev_img_0), np.asarray(prev_img_1)]
     raw_data.append((perf_counter_ns(), event))
 
 def callback_with_stop_key(event):
@@ -847,13 +884,36 @@ def create_macro(name, start_at, screen_width, screen_height):
             winput.hook_keyboard(callback_with_stop_key)
         else:
             winput.hook_keyboard(callback_only_stop_key)
-        
+
+        global GLOBAL_PROCESSING
+        global GLOBAL_IMAGE_LIST
+
+        GLOBAL_IMAGE_LIST = []
+        GLOBAL_PROCESSING = True
+        thread = threading.Thread(target=frameImageRun)
+        thread.start()
         winput.wait_messages()
+        GLOBAL_PROCESSING = False
+        thread.join()
 
     winput.unhook_mouse()
     winput.unhook_keyboard()
 
     return Macro.from_raw_data(name, start, start_mouse_pos, screen_width, screen_height, raw_data)
+
+def frameImageRun():
+    global GLOBAL_PROCESSING
+    global GLOBAL_SCREEN_W
+    global GLOBAL_SCREEN_H
+    global GLOBAL_IMAGE_LIST
+
+    while GLOBAL_PROCESSING:
+        # print("frameImageRun ", time.time())
+        time.sleep(0.1)
+
+        GLOBAL_IMAGE_LIST.append(pyautogui.screenshot(region=[0, 0, GLOBAL_SCREEN_W, GLOBAL_SCREEN_H]))
+        if len(GLOBAL_IMAGE_LIST) > 10:
+            del GLOBAL_IMAGE_LIST[0]
 
 def macros_to_json(*macros, indent=None):
     assert macros and all(map(lambda m: isinstance(m, Macro), macros))
