@@ -123,8 +123,8 @@ def is_similar_image2(full_img, regn_img):
 
     if len(kp_full) == 0 or len(kp_regn) == 0:
         if _check_color(full_img, regn_img):
-            return True
-        return False
+            return 0
+        return 10000
 
     bf = cv2.BFMatcher(crossCheck=True)
     matches = bf.match(desc_full, desc_regn)
@@ -143,6 +143,4 @@ def is_similar_image2(full_img, regn_img):
 
     print("match distance=", matches[0].distance, "pt=", match_position)
 
-    if matches[0].distance < 150:
-        return True
-    return False
+    return matches[0].distance

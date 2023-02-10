@@ -450,7 +450,10 @@ class MouseButtonPressEvent(MouseButtonEvent):
             full_img.save("match_full.png")
             full_img_data = cv2.imread("match_full.png", 0)
 
-            if is_similar_image2(full_img_data, regn_img_data) or is_similar_image2(full_img_data, regn_img_prev_0_data) or is_similar_image2(full_img_data, regn_img_prev_0_data):
+            match_val_0 = is_similar_image2(full_img_data, regn_img_data)
+            match_val_1 = is_similar_image2(full_img_data, regn_img_prev_0_data)
+            match_val_2 = is_similar_image2(full_img_data, regn_img_prev_1_data)
+            if match_val_0 < 150 or match_val_1 <  150 or match_val_2 < 150:
                 winput.set_mouse_pos(self.x, self.y)
                 winput.press_mouse_button(self.mouse_button)
                 found = True
@@ -463,8 +466,9 @@ class MouseButtonPressEvent(MouseButtonEvent):
                 time.sleep(0.05)
 
                 if zz % 10 == 0:
-                    img_show("match failed!!!", (full_img_data, regn_img_data, regn_img_prev_0_data, regn_img_prev_1_data))
+                    img_show("match failed! {0},{1},{2}".format(match_val_0, match_val_1, match_val_2), (full_img_data, regn_img_data, regn_img_prev_0_data, regn_img_prev_1_data))
                     if askyesno("确认", "遇到图像不匹配, 是否跳过?"):
+                        time.sleep(5)
                         return
                     time.sleep(5)
 
