@@ -143,6 +143,6 @@ def is_similar_image2(full_img, regn_img):
 
     print("match distance=", matches[0].distance, "pt=", match_position)
 
-    if matches[0].distance < 50:
+    if matches[0].distance < 150:
         return True
     return False
