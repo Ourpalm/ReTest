@@ -909,7 +909,7 @@ def frameImageRun():
 
     while GLOBAL_PROCESSING:
         # print("frameImageRun ", time.time())
-        time.sleep(0.1)
+        time.sleep(0.08)
 
         GLOBAL_IMAGE_LIST.append(pyautogui.screenshot(region=[0, 0, GLOBAL_SCREEN_W, GLOBAL_SCREEN_H]))
         if len(GLOBAL_IMAGE_LIST) > 10:
