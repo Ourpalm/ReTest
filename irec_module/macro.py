@@ -27,6 +27,7 @@ import winput, time, ctypes, zlib, json
 import pyautogui
 import numpy as np
 import base64
+from tkinter.messagebox import askyesno
 from PIL import Image
 
 from irec_module.util import is_similar_image
@@ -463,6 +464,8 @@ class MouseButtonPressEvent(MouseButtonEvent):
 
                 if zz % 10 == 0:
                     img_show("match failed!!!", (full_img_data, regn_img_data, regn_img_prev_0_data, regn_img_prev_1_data))
+                    if askyesno("确认", "遇到图像不匹配, 是否跳过?"):
+                        return
                     time.sleep(5)
 
         if not found:
