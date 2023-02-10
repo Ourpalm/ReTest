@@ -27,7 +27,7 @@ import winput, time, ctypes, zlib, json
 import pyautogui
 import numpy as np
 import base64
-from tkinter.messagebox import askyesno
+from tkinter.messagebox import askyesnocancel
 from PIL import Image
 
 from irec_module.util import is_similar_image
@@ -347,7 +347,6 @@ def img_show(title, img_list):
     img = np.hstack(img_list)
     cv2.namedWindow(title, cv2.WINDOW_AUTOSIZE)  # 0 or CV_WINDOW_AUTOSIZE(default）
     cv2.imshow(title, img)
-    cv2.waitKey(0)  # 0 or positive value(ms)
 
 class MouseButtonPressEvent(MouseButtonEvent):
     bytecode = b"B"
@@ -467,10 +466,14 @@ class MouseButtonPressEvent(MouseButtonEvent):
 
                 if zz % 10 == 0:
                     img_show("match failed! {0},{1},{2}".format(match_val_0, match_val_1, match_val_2), (full_img_data, regn_img_data, regn_img_prev_0_data, regn_img_prev_1_data))
-                    if askyesno("确认", "遇到图像不匹配, 是否跳过?"):
-                        time.sleep(5)
-                        return
+                    ask_ret = askyesnocancel("确认", "遇到图像不匹配, 是否跳过? 点击取消停止重放")
+                    cv2.destroyAllWindows()
                     time.sleep(5)
+                    if ask_ret is None:
+                        continue_playback = False
+                        return
+                    elif ask_ret:
+                        return
 
         if not found:
             full_img = pyautogui.screenshot(region=[mouse_x0 - GLOBAL_HALF_W, mouse_y0 - GLOBAL_HALF_H, GLOBAL_W, GLOBAL_H])  # x,y,w,h
@@ -576,6 +579,9 @@ class EventExecutor:
         target_time = start_time + self.time_offset
 
         while now < target_time:
+            if not continue_playback:
+                return 0
+
             diff_in_ms = (target_time - now) // 1000000
 
             if diff_in_ms > 10:

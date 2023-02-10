@@ -1709,6 +1709,7 @@ def create_window():
         global selection
         if selection:
             root.withdraw()
+            # root.iconify()
             play_macro_button.ttw.hide()
             root.update()
             
